@@ -1,4 +1,4 @@
-# SparseXX
+# SparseXX.jl: Sparse arrays with eXperimental eXtensions
 
 [![Build Status](https://travis-ci.com/tkf/SparseXX.jl.svg?branch=master)](https://travis-ci.com/tkf/SparseXX.jl)
 [![Build Status](https://ci.appveyor.com/api/projects/status/github/tkf/SparseXX.jl?svg=true)](https://ci.appveyor.com/project/tkf/SparseXX-jl)
