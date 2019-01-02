@@ -71,8 +71,8 @@ LinearAlgebra.dot(x::SparseXXVector, y::AbstractVector) = dot_dispatch(x, y)
 end
 
 @inline function dot_simd(sv::SparseXXVector, ys::SIMDArray,
-                          ::Val{align} = Val(false),
                           ::Val{N} = Val(4),
+                          ::Val{align} = Val(false),
                           ) where {N, align}
     Ti = eltype(sv.nzind)
     Tv = eltype(sv.nzval)

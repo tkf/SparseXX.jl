@@ -16,10 +16,49 @@ function mul_api!(C, A, B, α, β)
         if allsimdable(A, B)
             return mul_simd!(C, A, B, α, β)
         end
+    elseif A isa SparseXXMatrixCSC
+        if allsimdable(C, A)
+            return mul_simd!(C, A, B, α, β)
+        end
     end
     convertable_wo_copy(A) &&
         return mul!(C, convet(SparseMatrixCSC, A), B, α, β)
     return notimplemented(mul!, C, A, B, α, β)
+end
+
+function mul_simd!(C, A::SparseXXMatrixCSC, B, α, β,
+                   ::Val{N} = Val(4),
+                   ::Val{align} = Val(false),
+                   ) where {N, align}
+    nzv = A.nzval
+    rv = A.rowval
+    if β != 1
+        β != 0 ? rmul!(C, β) : fill!(C, zero(eltype(C)))
+    end
+
+    nomask = Vec(ntuple(_ -> true, N))
+    for k = 1:size(C, 2)
+        Ck = SubArray(C, (Base.Slice(Base.OneTo(size(C, 1))), k))
+        @inbounds for col = 1:A.n
+            αxj = B[col, k] * α
+            j = A.colptr[col]
+            jmax = A.colptr[col + 1] - 1
+            simd_end = jmax - N + 1
+            while j <= simd_end
+                idx = vload(Vec{N, eltype(rv)}, rv, j, Val{align})
+                a = vload(Vec{N, eltype(nzv)}, nzv, j, Val{align})
+                c = vgather(Ck, idx, nomask, Val{align})
+                c = muladd(a, αxj, c)
+                vscatter(c, Ck, idx, nomask, Val{align})
+                j += N
+            end
+            while j <= jmax
+                C[rv[j], k] += nzv[j] * αxj
+                j += 1
+            end
+        end
+    end
+    return C
 end
 
 function mul_simd!(C, adjA::AdjOrTrans, B, α, β)

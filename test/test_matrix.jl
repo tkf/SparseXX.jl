@@ -8,6 +8,10 @@ include("preamble.jl")
     A = SparseXXMatrixCSC(A0)
     B = randn(m, n)
 
+    C0 = mul!(zeros(m, n), A0, B)
+    C = mul!(zeros(m, n), A, B)
+    @test C ≈ C0
+
     C0 = mul!(zeros(m, n), A0', B)
     C = mul!(zeros(m, n), A', B)
     @test C ≈ C0
