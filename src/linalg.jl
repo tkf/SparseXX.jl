@@ -110,3 +110,23 @@ where
 function fmul!(Yβ, L, M, R)
     notimplemented(fmul!, Yβ, L, M, R)
 end
+
+
+"""
+    fmul_shared!((Y, β), (D1, S1', X1), ..., (Dn, Sn', Xn))
+    fmul_shared!((Y, β), (S1, D1, X1), ..., (Sn, Dn, Xn))
+
+Fused multiplications for sparse matrices with shared non-zero
+structure.
+
+```math
+Y = Y β + D₁ S₁' X₁ + ... + Dₙ Sₙ' Xₙ
+
+Y = Y β + D₁ S₁ X₁ + ... + Dₙ Sₙ Xₙ
+```
+"""
+function fmul_shared!(Yβ, triplets...)
+    notimplemented(fmul_shared!, Yβ, triplets...)
+end
+# It would be nice to have some computation graph exectuor on top of
+# fmul*!, but it can be done later.
