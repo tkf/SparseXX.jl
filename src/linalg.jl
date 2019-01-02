@@ -77,3 +77,36 @@ function mul_simd!(C, adjA::AdjOrTrans, B, α, β)
     end
     return C
 end
+
+
+### fmul!
+
+"""
+    fmul!((Y, β), L, M, R)
+
+Fused multiplication (and addition).
+
+```math
+Y = L M R + Y β
+```
+
+Following combinations are planned:
+
+| ``L``        | ``M``        | ``R``        | done? |
+|:---          |:---          |:---          |:---   |
+| diagonal     | spmat'       | vec/mat      | [ ]   |
+| spmat        | diagonal     | vec/mat      | [ ]   |
+| spmat        | diagonal     | spvec/spmat' | [ ]   |
+| spmat'       | diagonal     | smat         | [ ]   |
+
+where
+
+* diagonal: `Diagonal`, `UniformScaling`, or a `Number`
+* spmat: `SparseXXMatrixCSC`
+* spmat': `Adjoint` or `Transpose` of `SparseXXMatrixCSC`
+* vec/mat: `AbstractVecOrMat`
+
+"""
+function fmul!(Yβ, L, M, R)
+    notimplemented(fmul!, Yβ, L, M, R)
+end
