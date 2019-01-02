@@ -70,7 +70,7 @@ LinearAlgebra.dot(x::SparseXXVector, y::AbstractVector) = dot_dispatch(x, y)
     return notimplemented(dot, x, y)
 end
 
-@inline function dot_simd(sv::SparseXXVector, ys::DenseVector,
+@inline function dot_simd(sv::SparseXXVector, ys::SIMDArray,
                           ::Val{align} = Val(false),
                           ::Val{N} = Val(4),
                           ) where {N, align}
