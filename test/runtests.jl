@@ -1,6 +1,11 @@
+module Runtests
 using SparseXX
 using Test
 
-@testset "SparseXX.jl" begin
-    # Write your own tests here.
+@testset "$file" for file in [
+        "test_vector.jl",
+        ]
+    include(file)
 end
+
+end  # module
