@@ -1,11 +1,12 @@
 module SparseXX
 
-export SparseXXVector, SparseXXMatrixCSC
+export SparseXXVector, SparseXXMatrixCSC, fmul!
 
 using LinearAlgebra
 using LinearAlgebra: AdjOrTrans
 using SparseArrays
 
+using FillArrays
 using SIMD
 
 include("basics.jl")

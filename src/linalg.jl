@@ -26,6 +26,11 @@ function mul_api!(C, A, B, α, β)
     return notimplemented(mul!, C, A, B, α, β)
 end
 
+"""
+    mul_simd!(C, A::SparseXXMatrixCSC, B, α, β)
+
+Compute ``C = C β + A α B``.
+"""
 function mul_simd!(C, A::SparseXXMatrixCSC, B, α, β,
                    ::Val{N} = Val(4),
                    ::Val{align} = Val(false),
@@ -36,11 +41,12 @@ function mul_simd!(C, A::SparseXXMatrixCSC, B, α, β,
         β != 0 ? rmul!(C, β) : fill!(C, zero(eltype(C)))
     end
 
+    αdiag = asdiag(α, size(B, 1))
     nomask = Vec(ntuple(_ -> true, N))
     for k = 1:size(C, 2)
         Ck = SubArray(C, (Base.Slice(Base.OneTo(size(C, 1))), k))
         @inbounds for col = 1:A.n
-            αxj = B[col, k] * α
+            αxj = αdiag[col] * B[col, k]
             j = A.colptr[col]
             jmax = A.colptr[col + 1] - 1
             simd_end = jmax - N + 1
@@ -61,6 +67,16 @@ function mul_simd!(C, A::SparseXXMatrixCSC, B, α, β,
     return C
 end
 
+"""
+    mul_simd!(C, A'::AdjOrTrans, B, α, β)
+
+Compute ``C = C β + α A' B``.
+
+!!! warning
+
+    Note that the location of α is different from non-adjoint case.
+    (TODO: This is totally ugly.  Fix it.)
+"""
 function mul_simd!(C, adjA::AdjOrTrans, B, α, β)
     # eltype(A) is a SIMD.ScalarTypes hence is a Real; no need for
     # adjoint for each element
@@ -68,11 +84,12 @@ function mul_simd!(C, adjA::AdjOrTrans, B, α, β)
     if β != 1
         β != 0 ? rmul!(C, β) : fill!(C, zero(eltype(C)))
     end
+    αdiag = asdiag(α, size(C, 1))
     for k = 1:size(C, 2)
         @inbounds for col = 1:A.n
             a = unsafe_column(A, col)
             b = SubArray(B, (Base.Slice(Base.OneTo(size(B, 1))), k))
-            C[col, k] += α * dot_simd(a, b)
+            C[col, k] += αdiag[col] * dot_simd(a, b)
         end
     end
     return C
@@ -82,6 +99,7 @@ end
 ### fmul!
 
 """
+    fmul!(Y, L, M, R)
     fmul!((Y, β), L, M, R)
 
 Fused multiplication (and addition).
@@ -94,8 +112,8 @@ Following combinations are planned:
 
 | ``L``        | ``M``        | ``R``        | done? |
 |:---          |:---          |:---          |:---   |
-| diagonal     | spmat'       | vec/mat      | [ ]   |
-| spmat        | diagonal     | vec/mat      | [ ]   |
+| diagonal     | spmat'       | vec/mat      | [^1]  |
+| spmat        | diagonal     | vec/mat      | [^1]  |
 | spmat        | diagonal     | spvec/spmat' | [ ]   |
 | spmat'       | diagonal     | smat         | [ ]   |
 
@@ -106,8 +124,18 @@ where
 * spmat': `Adjoint` or `Transpose` of `SparseXXMatrixCSC`
 * vec/mat: `AbstractVecOrMat`
 
+[^1]: yes, for SIMD-able types
+
 """
-function fmul!(Yβ, L, M, R)
+fmul!(Y::AbstractMatrix, L, M, R) = fmul!((Y, false), L, M, R)
+
+function fmul!(Yβ::Tuple{<:AbstractMatrix, <:Number}, L, M, R)
+    Y, β = Yβ
+    if isdiagtype(L) && M isa AdjOrTrans && allsimdable(M, R)
+        return mul_simd!(Y, M, R, L, β)
+    elseif isdiagtype(M) && L isa SparseXXMatrixCSC && allsimdable(Y, L)
+        return mul_simd!(Y, L, R, M, β)
+    end
     notimplemented(fmul!, Yβ, L, M, R)
 end
 

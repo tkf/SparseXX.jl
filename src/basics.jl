@@ -15,3 +15,12 @@ simdable(::Type{<:AdjOrTrans{<:Any, P}}) where P = simdable(P)
 
 allsimdable() = true
 allsimdable(x, args...) = simdable(x) && allsimdable(args...)
+
+asdiag(A::Diagonal, n) = A.diag
+asdiag(A::UniformScaling, n) = asdiag(A.λ, n)
+asdiag(a::Number, n) = Fill(a, n, n)
+
+isdiagtype(::Any) = false
+isdiagtype(::Diagonal) = true
+isdiagtype(::UniformScaling) = true
+isdiagtype(::Number) = true
