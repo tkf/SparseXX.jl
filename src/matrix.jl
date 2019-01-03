@@ -61,3 +61,24 @@ end
 ### Basic properties
 
 Base.size(S::SparseXXMatrixCSC) = (S.m, S.n)
+
+SparseArrays.nnz(S::SparseXXMatrixCSC) = Int(S.colptr[S.n + 1] - 1)
+SparseArrays.nnz(S::Base.ReshapedArray{T,1,<:SparseXXMatrixCSC}) where T =
+    nnz(parent(S))
+
+SparseArrays.nonzeros(S::SparseXXMatrixCSC) = S.nzval
+SparseArrays.rowvals(S::SparseXXMatrixCSC) = S.rowval
+Base.@propagate_inbounds SparseArrays.nzrange(S::SparseXXMatrixCSC, col::Integer) =
+    S.colptr[col]:(S.colptr[col+1]-1)
+
+
+function Base.getindex(S::SparseXXMatrixCSC, i::Integer, j::Integer)
+    nzr = nzrange(S, j)
+    nzv = view(nonzeros(S), nzr)
+    nzi = view(rowvals(S), nzr)
+    k = searchsortedfirst(nzi, i)
+    if k > length(nzi) || nzi[k] != i
+        return zero(eltype(nzv))
+    end
+    return nzv[k]
+end

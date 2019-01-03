@@ -1,6 +1,17 @@
 module TestMatrix
 include("preamble.jl")
 
+@testset "basic interface" begin
+    m = 10
+    n = 3
+    A0 = sprandn(m, m, 0.3)
+    A = SparseXXMatrixCSC(A0)
+    @test A[1, 1] isa Float64
+    @test A == A0
+    @test sprint(show, A) isa String
+    @test sprint(show, "text/plain", A) isa String
+end
+
 @testset begin
     m = 10
     n = 3
