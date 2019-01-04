@@ -21,9 +21,7 @@ Features:
 
   Planned:
 
-    * `Y = Y β + S₁ D S₂'`
-    * `Y = Y β + S₁' D S₂`
-    * `Y = Y β + D₁ S₁ X₁ + ... + Dₙ Sₙ Xₙ` [*1]
+    * `Y = Y β + S₁ D₁ X₁ + ... + Sₙ Dₙ Xₙ` [*1]
 
   where:
 

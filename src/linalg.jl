@@ -115,8 +115,6 @@ Following combinations are planned:
 |:---          |:---          |:---          |:---   |
 | diagonal     | spmat'       | vec/mat      | [^1]  |
 | spmat        | diagonal     | vec/mat      | [^1]  |
-| spmat        | diagonal     | spvec/spmat' | [ ]   |
-| spmat'       | diagonal     | smat         | [ ]   |
 
 where
 
@@ -166,7 +164,7 @@ structure.
 ```math
 Y = Y β + D₁ S₁' X₁ + ... + Dₙ Sₙ' Xₙ
 
-Y = Y β + D₁ S₁ X₁ + ... + Dₙ Sₙ Xₙ
+Y = Y β + S₁ D₁ X₁ + ... + Sₙ Dₙ Xₙ
 ```
 
 (ATM, only the first form with SIMD-compatible scalar types is defined.)
