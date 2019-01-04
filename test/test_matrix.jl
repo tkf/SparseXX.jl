@@ -47,16 +47,28 @@ end
     n = 3
     D1 = Diagonal(randn(m))
     D2 = Diagonal(randn(m))
+    D3 = Diagonal(randn(m))
     S1 = sprandn(m, m, 0.3)
     S2 = spshared(S1)
+    S3 = spshared(S1)
     randn!(nonzeros(S2))
+    randn!(nonzeros(S3))
     X1 = randn(m, n)
     X2 = randn(m, n)
-    Y = zero(X1)
+    X3 = randn(m, n)
 
     @test SparseXX.is_shared_csr_simd(((D1, S1', X1), (D2, S2', X2)))
-    fmul_shared!(Y, (D1, S1', X1), (D2, S2', X2))
+    Y = fmul_shared!(zero(X1), (D1, S1', X1), (D2, S2', X2))
     @test Y ≈ D1 * S1' * X1 + D2 * S2' * X2
+
+    @test SparseXX.is_shared_csr_simd(((D1, S1', X1),
+                                       (D2, S2', X2),
+                                       (D3, S3', X3)))
+    Y = fmul_shared!(zero(X1),
+                     (D1, S1', X1),
+                     (D2, S2', X2),
+                     (D3, S3', X3))
+    @test Y ≈ D1 * S1' * X1 + D2 * S2' * X2 + D3 * S3' * X3
 end
 
 end  # module
