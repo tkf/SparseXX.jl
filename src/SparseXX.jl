@@ -1,6 +1,6 @@
 module SparseXX
 
-export SparseXXVector, SparseXXMatrixCSC, fmul!
+export SparseXXVector, SparseXXMatrixCSC, fmul!, fmul_shared!, spshared
 
 using LinearAlgebra
 using LinearAlgebra: AdjOrTrans

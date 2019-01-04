@@ -1,3 +1,7 @@
+constructor_of(X) = constructor_of(typeof(X))
+@generated constructor_of(::Type{T}) where T =
+    getfield(parentmodule(T), nameof(T))
+
 @noinline notimplemented(f, args...) = throw(MethodError(f, args))
 
 const DenseIndex = Union{UnitRange, Base.Slice{<:Base.OneTo}}
@@ -12,6 +16,7 @@ simdable(::Type) = false
 simdable(::Type{<: SIMD.ScalarTypes}) = true
 simdable(::Type{<:SIMDArray{T}}) where T = simdable(T)
 simdable(::Type{<:AdjOrTrans{<:Any, P}}) where P = simdable(P)
+simdable(T::Type{<:SparseMatrixCSC{Tv,Ti}}) where {Tv,Ti} = allsimdable(Tv, Ti)
 
 allsimdable() = true
 allsimdable(x, args...) = simdable(x) && allsimdable(args...)
