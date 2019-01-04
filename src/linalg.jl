@@ -45,7 +45,7 @@ Compute ``C = C β + A α B``.
     αdiag = asdiag(α, size(B, 1))
     nomask = Vec(ntuple(_ -> true, N))
     for k = 1:size(C, 2)
-        Ck = SubArray(C, (Base.Slice(Base.OneTo(size(C, 1))), k))
+        Ck = unsafe_column(C, k)
         @inbounds for col = 1:A.n
             αxj = αdiag[col] * B[col, k]
             j = A.colptr[col]
@@ -89,7 +89,7 @@ Compute ``C = C β + α A' B``.
     for k = 1:size(C, 2)
         @inbounds for col = 1:A.n
             a = unsafe_column(A, col)
-            b = SubArray(B, (Base.Slice(Base.OneTo(size(B, 1))), k))
+            b = unsafe_column(B, k)
             C[col, k] += αdiag[col] * dot_simd(a, b)
         end
     end

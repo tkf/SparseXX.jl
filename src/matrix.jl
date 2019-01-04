@@ -53,7 +53,7 @@ convertable_wo_copy(::T) where {T <: SparseXXMatrixCSC} =
     RowValType(T) isa Vector &&
     NZValType(T) isa Vector
 
-@inline function unsafe_column(S, col)
+@inline function unsafe_column(S::AbstractSparseMatrix, col)
     idx = ((@inbounds S.colptr[col]:(S.colptr[col + 1] - 1)),)
     return SparseXXVector(S.n, SubArray(S.rowval, idx), SubArray(S.nzval, idx))
 end
