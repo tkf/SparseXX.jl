@@ -130,7 +130,7 @@ where
 """
 fmul!(Y::AbstractMatrix, L, M, R) = fmul!((Y, false), L, M, R)
 
-function fmul!(Yβ::Tuple{<:AbstractMatrix, <:Number}, L, M, R)
+@inline function fmul!(Yβ::Tuple{<:AbstractMatrix, <:Number}, L, M, R)
     Y, β = Yβ
     if isdiagtype(L) && M isa AdjOrTrans && allsimdable(M, R)
         return mul_simd!(Y, M, R, L, β)
