@@ -33,7 +33,7 @@ Compute ``C = C β + A α B``.
 """
 @inline function mul_simd!(
         C, A::SparseXXMatrixCSC, B, α, β,
-        ::Val{N} = Val(4),
+        ::Val{N} = Val(8),
         ::Val{align} = Val(false),
         ) where {N, align}
     nzv = A.nzval
