@@ -8,7 +8,7 @@ for TA in [SparseXXMatrixCSC, AdjOrTrans{<:Any, <:SparseXXMatrixCSC}]
         mul_api!(C, A, B, α, β)
 end
 
-function mul_api!(C, A, B, α, β)
+@inline function mul_api!(C, A, B, α, β)
     @assert size(C, 1) == size(A, 1)
     @assert size(C, 2) == size(B, 2)
     @assert size(A, 2) == size(B, 1)
@@ -31,10 +31,11 @@ end
 
 Compute ``C = C β + A α B``.
 """
-function mul_simd!(C, A::SparseXXMatrixCSC, B, α, β,
-                   ::Val{N} = Val(4),
-                   ::Val{align} = Val(false),
-                   ) where {N, align}
+@inline function mul_simd!(
+        C, A::SparseXXMatrixCSC, B, α, β,
+        ::Val{N} = Val(4),
+        ::Val{align} = Val(false),
+        ) where {N, align}
     nzv = A.nzval
     rv = A.rowval
     if β != 1
@@ -77,7 +78,7 @@ Compute ``C = C β + α A' B``.
     Note that the location of α is different from non-adjoint case.
     (TODO: This is totally ugly.  Fix it.)
 """
-function mul_simd!(C, adjA::AdjOrTrans, B, α, β)
+@inline function mul_simd!(C, adjA::AdjOrTrans, B, α, β)
     # eltype(A) is a SIMD.ScalarTypes hence is a Real; no need for
     # adjoint for each element
     A = adjA.parent
