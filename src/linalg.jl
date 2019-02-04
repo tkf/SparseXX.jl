@@ -168,6 +168,26 @@ Y = Y β + S₁ D₁ X₁ + ... + Sₙ Dₙ Xₙ
 ```
 
 (ATM, only the first form with SIMD-compatible scalar types is defined.)
+
+# Examples
+```
+julia> m = 3; n = 1; p = 0.1;
+
+julia> begin
+       using SparseXX
+       using Random
+       S1 = SparseXXMatrixCSC(sprandn(m, m, p))
+       S2 = spshared(S1)
+       randn!(nonzeros(S2))
+       X1 = randn(m, n)
+       X2 = randn(m, n)
+       D1 = Diagonal(randn(m))
+       D2 = Diagonal(randn(m))
+       Y = zero(X1)
+       end;
+
+julia> fmul_shared!(Y, (D1, S1', X1), (D2, S2', X2))
+```
 """
 fmul_shared!(Y::AbstractVecOrMat, triplets...) =
     fmul_shared!((Y, false), triplets...)
@@ -190,85 +210,62 @@ end
         all(((_, S, _),) -> isnzshared(t1[2], S), rest)
 end
 
-@generated function fmul_shared_simd!(Yβ, triplets::Diag_CSR_VM...)
-    N = 4
-    align = Val{false}
-    nt = length(triplets)
-
-    init_vaccs = quote end
-    simd_body = quote
-        idx = vload(Vec{$N, Ti}, nzind, j, $align)
+@inline function fmul_shared_simd!(
+        Yβ, triplets::Diag_CSR_VM...;
+        simdwidth::Val{N} = Val(4)
+        ) where {N}
+    Y, β = Yβ
+    if β != 1
+        β != 0 ? rmul!(Y, β) : fill!(Y, zero(eltype(Y)))
     end
-    reduce_vaccs = quote end
-    scalar_body = quote end
-    mul_diag_exprs = []
-    for i in 1:nt
-        TS = triplets[i].types[2]  # sparse matrix types
-        Tv = eltype(TS)
-        Ta = Tv  # TODO: promote
-        vacc = Symbol("vacc", i)
-        acc = Symbol("acc", i)
-        init_vaccs = quote
-            $init_vaccs
-            $vacc = zero(Vec{$N, $Ta})
+
+    lane = VecRange{N}(0)
+
+    S1 = parent(triplets[1][2])
+    nzind = rowvals(S1)
+    nzvs = map(((_, S, _),) -> nonzeros(parent(S)), triplets)
+    diags = map(((D, _, _),) -> D.diag, triplets)
+
+    for k = 1:size(Y, 2)
+        Xs = let k = k
+            map(DSX -> unsafe_column(DSX[3], k), triplets)
         end
-        vx = Symbol("vx", i)
-        vs = Symbol("vs", i)
-        simd_body = quote
-            $simd_body
-            $vx = vgather(Xs[$i], idx, nomask, $align)
-            $vs = vload(Vec{$N, $Tv}, nzvs[$i], j, $align)
-            $vacc = muladd($vs, $vx, $vacc)
-        end
-        reduce_vaccs = quote
-            $reduce_vaccs
-            $acc = sum($vacc)
-        end
-        scalar_body = quote
-            $scalar_body
-            $acc = muladd(nzvs[$i][j], Xs[$i][nzind[j]], $acc)
-        end
-        push!(mul_diag_exprs, quote
-            diags[$i][col] * $acc
-        end)
-    end
-    mul_diag = Expr(:call, :+, mul_diag_exprs...)
-
-    quote
-        Y, β = Yβ
-        if β != 1
-            β != 0 ? rmul!(Y, β) : fill!(Y, zero(eltype(Y)))
-        end
-
-        S1 = parent(triplets[1][2])
-        nzind = rowvals(S1)
-        Ti = eltype(nzind)
-        nomask = Vec($(ntuple(_ -> true, N)))
-
-        nzvs = ($((:(nonzeros(parent(triplets[$i][2]))) for i in 1:nt)...),)
-        diags = ($((:(triplets[$i][1].diag) for i in 1:nt)...),)
-
-        for k = 1:size(Y, 2)
-            Xs = ($((:(unsafe_column(triplets[$i][3], k)) for i in 1:nt)...),)
-            @inbounds for col = 1:S1.n
-                nzr = nzrange(S1, col)
-                simd_end = last(nzr) - $N + 1
-                j = first(nzr)
-                $init_vaccs
-                @inbounds while j <= simd_end
-                    $simd_body
-                    j += $N
-                end
-                $reduce_vaccs
-
-                @inbounds while j <= last(nzr)
-                    $scalar_body
-                    j += 1
-                end
-
-                Y[col, k] += $mul_diag
+        @inbounds for col = 1:S1.n
+            vaccs = map(triplets) do (_, S, _)
+                zero(Vec{N, eltype(S)})  # TODO: promote
             end
+
+            nzr = nzrange(S1, col)
+            simd_end = last(nzr) - N + 1
+            j = first(nzr)
+            while j <= simd_end
+                let lane = lane,
+                    idx = nzind[lane + j] #=,
+                    j = j =#
+                    vaccs = map(vaccs, nzvs, Xs) do vacc, nzv, X
+                        @inbounds muladd(nzv[lane + j], X[idx], vacc)
+                    end
+                end
+                j += N
+            end
+
+            accs = map(sum, vaccs)
+            while j <= last(nzr)
+                accs = let j = j, idx = nzind[j]
+                    map(accs, nzvs, Xs) do acc, nzv, X
+                        @inbounds muladd(nzv[j], X[idx], acc)
+                    end
+                end
+                j += 1
+            end
+
+            prods = let col = col
+                map(diags, accs) do diag, acc
+                    @inbounds diag[col] * acc
+                end
+            end
+            Y[col, k] += +(prods...)
         end
-        return Y
     end
+    return Y
 end
