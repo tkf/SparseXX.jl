@@ -239,6 +239,7 @@ end
             simd_end = last(nzr) - N + 1
             j = first(nzr)
             while j <= simd_end
+                #=
                 let lane = lane,
                     idx = nzind[lane + j] #=,
                     j = j =#
@@ -246,6 +247,8 @@ end
                         @inbounds muladd(nzv[lane + j], X[idx], vacc)
                     end
                 end
+                =#
+                vaccs = compute_vaccs(vaccs, nzvs, Xs, nzind[lane + j], lane + j)
                 j += N
             end
 
@@ -269,3 +272,11 @@ end
     end
     return Y
 end
+
+# This is a workaround for the possible bug in `let`:
+# https://github.com/JuliaLang/julia/issues/30951.  This fixes the
+# test _and_ makes the inference work.
+@inline compute_vaccs(vaccs, nzvs, Xs, idx, vj) =
+    map(vaccs, nzvs, Xs) do vacc, nzv, X
+        @inbounds muladd(nzv[vj], X[idx], vacc)
+    end
