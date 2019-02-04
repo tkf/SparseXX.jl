@@ -210,9 +210,15 @@ end
         all(((_, S, _),) -> isnzshared(t1[2], S), rest)
 end
 
-@inline function fmul_shared_simd!(
-        Yβ, triplets::Diag_CSR_VM...;
-        simdwidth::Val{N} = Val(4)
+@inline fmul_shared_simd!(Yβ, triplets...) =
+    _fmul_shared_simd!(Val(4), Yβ, triplets)
+
+# Using `triplets::Tuple{Vararg{Diag_CSR_VM}}` instead of
+# `triplets::Diag_CSR_VM...` seems to be important for Julia to
+# optimize this function.
+@inline function _fmul_shared_simd!(
+        ::Val{N},
+        Yβ, triplets::Tuple{Vararg{Diag_CSR_VM}}
         ) where {N}
     Y, β = Yβ
     if β != 1
