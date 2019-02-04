@@ -240,8 +240,8 @@ end
             j = first(nzr)
             while j <= simd_end
                 let lane = lane,
-                    idx = nzind[lane + j] #=,
-                    j = j =#
+                    idx = nzind[lane + j],
+                    j = j
                     vaccs = map(vaccs, nzvs, Xs) do vacc, nzv, X
                         @inbounds muladd(nzv[lane + j], X[idx], vacc)
                     end
