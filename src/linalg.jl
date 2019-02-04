@@ -276,7 +276,10 @@ end
 # This is a workaround for the possible bug in `let`:
 # https://github.com/JuliaLang/julia/issues/30951.  This fixes the
 # test _and_ makes the inference work.
+compute_vaccs(::Tuple{}, ::Tuple{}, ::Tuple{}, _, _) = ()
 @inline compute_vaccs(vaccs, nzvs, Xs, idx, vj) =
-    map(vaccs, nzvs, Xs) do vacc, nzv, X
-        @inbounds muladd(nzv[vj], X[idx], vacc)
-    end
+    ((@inbounds muladd(nzvs[1][vj], Xs[1][idx], vaccs[1])),
+     compute_vaccs(Base.tail(vaccs),
+                   Base.tail(nzvs),
+                   Base.tail(Xs),
+                   idx, vj)...)
