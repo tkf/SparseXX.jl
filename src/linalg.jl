@@ -174,7 +174,7 @@ Y = Y β + S₁ D₁ X₁ + ... + Sₙ Dₙ Xₙ
 julia> m = 3; n = 1; p = 0.1;
 
 julia> begin
-       using SparseXX
+       using LinearAlgebra, SparseArrays, SparseXX
        using Random
        S1 = SparseXXMatrixCSC(sprandn(m, m, p))
        S2 = spshared(S1)
