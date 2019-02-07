@@ -72,29 +72,28 @@ end
 
 @inline function dot_simd(sv::SparseXXVector, ys::SIMDArray,
                           ::Val{N} = Val(4),
-                          ::Val{align} = Val(false),
-                          ) where {N, align}
+                          ) where {N}
     Ti = eltype(sv.nzind)
     Tv = eltype(sv.nzval)
     T = promote_type(eltype(sv.nzval), eltype(ys))
     isempty(sv.nzval) && return zero(T)
 
+    nzval = sv.nzval
+    nzind = sv.nzind
+
     nz_size = length(sv.nzval)
-    nomask = Vec(ntuple(_ -> true, N))
+    lane = VecRange{N}(0)
     vacc = zero(Vec{N, T})
     simd_end = nz_size - N + 1
     j = 1
     @inbounds while j <= simd_end
-        idx = vload(Vec{N, Ti}, sv.nzind, j, Val{align})
-        bs = vgather(ys, idx, nomask, Val{align})
-        as = vload(Vec{N, Tv}, sv.nzval, j, Val{align})
-        vacc = muladd(as, bs, vacc)
+        vacc = muladd(nzval[lane + j], ys[nzind[lane + j]], vacc)
         j += N
     end
 
     acc = sum(vacc)
     @inbounds while j <= nz_size
-        acc = muladd(sv.nzval[j], ys[sv.nzind[j]], acc)
+        acc = muladd(nzval[j], ys[nzind[j]], acc)
         j += 1
     end
     return acc
