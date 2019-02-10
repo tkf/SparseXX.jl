@@ -202,9 +202,9 @@ fmul_shared!(Y::AbstractVecOrMat, rhs...) =
 @inline function fmul_shared!(Yβ::Tuple{AbstractVecOrMat, Number}, rhs...)
     if length(rhs) == 0
     elseif is_shared_simd3(rhs)
-        return fmul_shared_simd!(Yβ, rhs)
+        return fmul_shared_simd3!(Yβ, rhs...)
     elseif is_shared_simd2(rhs)
-        return fmul_shared_simd!(Yβ, butlast(rhs), rhs[end])
+        return fmul_shared_simd2!(Yβ, rhs[end], butlast(rhs)...)
     end
     notimplemented(fmul_shared!, Yβ, rhs...)
 end
@@ -230,7 +230,8 @@ end
         all(((_, S),) -> isnzshared(t1[2], S), middle)
 end
 
-@inline fmul_shared_simd!(Yβ, args...) = _fmul_shared_simd!(Val(4), Yβ, args...)
+@inline fmul_shared_simd3!(Yβ, triplets...) =
+    _fmul_shared_simd!(Val(4), Yβ, triplets)
 
 # Using `triplets::Tuple{Vararg{Diag_CSR_VM}}` instead of
 # `triplets::Diag_CSR_VM...` seems to be important for Julia to
@@ -309,6 +310,8 @@ compute_vaccs(::Tuple{}, ::Tuple{}, ::Tuple{}, _, _) = ()
                    Base.tail(Xs),
                    idx, vj)...)
 
+@inline fmul_shared_simd2!(Yβ, X, pairs...) =
+    _fmul_shared_simd!(Val(4), Yβ, pairs, X)
 
 @inline function _fmul_shared_simd!(
         ::Val{N},
