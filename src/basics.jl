@@ -1,3 +1,5 @@
+butlast(x) = reverse(Base.tail(reverse(x)))
+
 constructor_of(X) = constructor_of(typeof(X))
 @generated constructor_of(::Type{T}) where T =
     getfield(parentmodule(T), nameof(T))

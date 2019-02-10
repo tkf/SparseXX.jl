@@ -143,6 +143,8 @@ const M_M_VM = Tuple{AbstractMatrix,AbstractMatrix,AbstractVecOrMat}
 const Diag_CSR_VM = Tuple{Diagonal,AdjOrTrans{<:Any,<:AbstractSparseMatrix},AbstractVecOrMat}
 const CSC_Diag_VM = Tuple{AbstractSparseMatrix,Diagonal,AbstractVecOrMat}
 
+const Diag_CSR = Tuple{Diagonal,AdjOrTrans{<:Any,<:AbstractSparseMatrix}}
+
 isnzshared(A::AbstractSparseMatrix, B::AbstractSparseMatrix) =
     A.colptr === B.colptr && rowvals(A) === rowvals(B)
 isnzshared(A::AdjOrTrans, B::AdjOrTrans) = isnzshared(parent(A), parent(B))
@@ -156,6 +158,7 @@ end
 
 """
     fmul_shared!((Y, β), (D1, S1', X1), ..., (Dn, Sn', Xn))
+    fmul_shared!((Y, β), (D1, S1'), ..., (Dn, Sn'), X)
     fmul_shared!((Y, β), (S1, D1, X1), ..., (Sn, Dn, Xn))
 
 Fused multiplications for sparse matrices with shared non-zero
@@ -163,6 +166,8 @@ structure.
 
 ```math
 Y = Y β + D₁ S₁' X₁ + ... + Dₙ Sₙ' Xₙ
+
+Y = Y β + (D₁ S₁' + ... + Dₙ Sₙ') X
 
 Y = Y β + S₁ D₁ X₁ + ... + Sₙ Dₙ Xₙ
 ```
@@ -186,32 +191,46 @@ julia> begin
        Y = zero(X1)
        end;
 
-julia> fmul_shared!(Y, (D1, S1', X1), (D2, S2', X2))
+julia> fmul_shared!(Y, (D1, S1', X1), (D2, S2', X2));
+
+julia> fmul_shared!(Y, (D1, S1'), (D2, S2'), X1);
 ```
 """
-fmul_shared!(Y::AbstractVecOrMat, triplets...) =
-    fmul_shared!((Y, false), triplets...)
+fmul_shared!(Y::AbstractVecOrMat, rhs...) =
+    fmul_shared!((Y, false), rhs...)
 
-@inline function fmul_shared!(Yβ::Tuple{AbstractVecOrMat, Number},
-                              triplets::M_M_VM...)
-    if is_shared_csr_simd(triplets)
-        return fmul_shared_simd!(Yβ, triplets...)
+@inline function fmul_shared!(Yβ::Tuple{AbstractVecOrMat, Number}, rhs...)
+    if length(rhs) == 0
+    elseif is_shared_simd3(rhs)
+        return fmul_shared_simd!(Yβ, rhs)
+    elseif is_shared_simd2(rhs)
+        return fmul_shared_simd!(Yβ, butlast(rhs), rhs[end])
     end
-    notimplemented(fmul_shared!, Yβ, triplets...)
+    notimplemented(fmul_shared!, Yβ, rhs...)
 end
 # It would be nice to have some computation graph exectuor on top of
 # fmul*!, but it can be done later.
 
-@inline function is_shared_csr_simd(triplets)
+@inline function is_shared_simd3(triplets)
     t1 = triplets[1]
-    rest = triplets[2:end]
-    return all(isa.(triplets, Diag_CSR_VM)) &&
+    rest = Base.tail(triplets)
+    return triplets isa Tuple{Vararg{Diag_CSR_VM}} &&
         all(((D, S, X),) -> allsimdable(S, X), triplets) &
         all(((_, S, _),) -> isnzshared(t1[2], S), rest)
 end
 
-@inline fmul_shared_simd!(Yβ, triplets...) =
-    _fmul_shared_simd!(Val(4), Yβ, triplets)
+@inline function is_shared_simd2(pairs_and_vm)
+    pairs = butlast(pairs_and_vm)
+    t1 = pairs_and_vm[1]
+    middle = Base.tail(pairs)
+    vm = pairs_and_vm[end]
+    return simdable(vm) &&
+        pairs isa Tuple{Vararg{Diag_CSR}} &&
+        all(((_, S),) -> simdable(S), pairs) &&
+        all(((_, S),) -> isnzshared(t1[2], S), middle)
+end
+
+@inline fmul_shared_simd!(Yβ, args...) = _fmul_shared_simd!(Val(4), Yβ, args...)
 
 # Using `triplets::Tuple{Vararg{Diag_CSR_VM}}` instead of
 # `triplets::Diag_CSR_VM...` seems to be important for Julia to
@@ -289,3 +308,63 @@ compute_vaccs(::Tuple{}, ::Tuple{}, ::Tuple{}, _, _) = ()
                    Base.tail(nzvs),
                    Base.tail(Xs),
                    idx, vj)...)
+
+
+@inline function _fmul_shared_simd!(
+        ::Val{N},
+        Yβ, pairs::Tuple{Vararg{Diag_CSR}}, X,
+        ) where {N}
+    Y, β = Yβ
+    if β != 1
+        β != 0 ? rmul!(Y, β) : fill!(Y, zero(eltype(Y)))
+    end
+
+    lane = VecRange{N}(0)
+
+    S1 = parent(pairs[1][2])
+    nzind = rowvals(S1)
+    nzvs = map(((_, S),) -> nonzeros(parent(S)), pairs)
+    diags = map(((D, _),) -> D.diag, pairs)
+
+    for k = 1:size(Y, 2)
+        Xk = unsafe_column(X, k)
+        @inbounds for col = 1:S1.n
+            vaccs = map(pairs) do (_, S)
+                zero(Vec{N, eltype(S)})  # TODO: promote
+            end
+
+            nzr = nzrange(S1, col)
+            simd_end = last(nzr) - N + 1
+            j = first(nzr)
+            while j <= simd_end
+                vaccs = let lane = lane,
+                    idx = nzind[lane + j],
+                    j = j,
+                    Xk = Xk
+                    map(vaccs, nzvs) do vacc, nzv
+                        @inbounds muladd(nzv[lane + j], Xk[idx], vacc)
+                    end
+                end
+                j += N
+            end
+
+            accs = map(sum, vaccs)
+            while j <= last(nzr)
+                accs = let j = j, idx = nzind[j], Xk = Xk
+                    map(accs, nzvs) do acc, nzv
+                        @inbounds muladd(nzv[j], Xk[idx], acc)
+                    end
+                end
+                j += 1
+            end
+
+            prods = let col = col
+                map(diags, accs) do diag, acc
+                    @inbounds diag[col] * acc
+                end
+            end
+            Y[col, k] += +(prods...)
+        end
+    end
+    return Y
+end

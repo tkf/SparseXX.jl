@@ -57,18 +57,33 @@ end
     X2 = randn(m, n)
     X3 = randn(m, n)
 
-    @test SparseXX.is_shared_csr_simd(((D1, S1', X1), (D2, S2', X2)))
+    @test SparseXX.is_shared_simd3(((D1, S1', X1), (D2, S2', X2)))
     Y = fmul_shared!(zero(X1), (D1, S1', X1), (D2, S2', X2))
     @test Y ≈ D1 * S1' * X1 + D2 * S2' * X2
 
-    @test SparseXX.is_shared_csr_simd(((D1, S1', X1),
-                                       (D2, S2', X2),
-                                       (D3, S3', X3)))
+    @test SparseXX.is_shared_simd2(((D1, S1'), (D2, S2'), X1))
+    Y = fmul_shared!(zero(X1), (D1, S1'), (D2, S2'), X1)
+    @test Y ≈ (D1 * S1' + D2 * S2') * X1
+
+    @test SparseXX.is_shared_simd3(((D1, S1', X1),
+                                    (D2, S2', X2),
+                                    (D3, S3', X3)))
     Y = fmul_shared!(zero(X1),
                      (D1, S1', X1),
                      (D2, S2', X2),
                      (D3, S3', X3))
     @test Y ≈ D1 * S1' * X1 + D2 * S2' * X2 + D3 * S3' * X3
+
+    @test SparseXX.is_shared_simd2(((D1, S1'),
+                                    (D2, S2'),
+                                    (D3, S3'),
+                                    X1))
+    Y = fmul_shared!(zero(X1),
+                     (D1, S1'),
+                     (D2, S2'),
+                     (D3, S3'),
+                     X1)
+    @test Y ≈ (D1 * S1' + D2 * S2' + D3 * S3') * X1
 end
 
 end  # module
