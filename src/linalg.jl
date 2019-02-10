@@ -340,22 +340,24 @@ compute_vaccs(::Tuple{}, ::Tuple{}, ::Tuple{}, _, _) = ()
             simd_end = last(nzr) - N + 1
             j = first(nzr)
             while j <= simd_end
+                #=
                 vaccs = let lane = lane,
-                    idx = nzind[lane + j],
-                    j = j,
-                    Xk = Xk
+                    Xjk = Xk[nzind[lane + j]],
+                    j = j
                     map(vaccs, nzvs) do vacc, nzv
-                        @inbounds muladd(nzv[lane + j], Xk[idx], vacc)
+                        @inbounds muladd(nzv[lane + j], Xjk, vacc)
                     end
                 end
+                =#
+                vaccs = compute_vaccs(vaccs, nzvs, Xk[nzind[lane + j]], lane + j)
                 j += N
             end
 
             accs = map(sum, vaccs)
             while j <= last(nzr)
-                accs = let j = j, idx = nzind[j], Xk = Xk
+                accs = let j = j, Xjk = Xk[nzind[j]]
                     map(accs, nzvs) do acc, nzv
-                        @inbounds muladd(nzv[j], Xk[idx], acc)
+                        @inbounds muladd(nzv[j], Xjk, acc)
                     end
                 end
                 j += 1
@@ -371,3 +373,10 @@ compute_vaccs(::Tuple{}, ::Tuple{}, ::Tuple{}, _, _) = ()
     end
     return Y
 end
+
+compute_vaccs(::Tuple{}, ::Tuple{}, _, _) = ()
+@inline compute_vaccs(vaccs, nzvs, Xjk, vj) =
+    ((@inbounds muladd(nzvs[1][vj], Xjk, vaccs[1])),
+     compute_vaccs(Base.tail(vaccs),
+                   Base.tail(nzvs),
+                   Xjk, vj)...)
