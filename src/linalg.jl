@@ -192,7 +192,7 @@ julia> fmul_shared!(Y, (D1, S1', X1), (D2, S2', X2));
 julia> fmul_shared!(Y, (D1, S1'), (D2, S2'), X1);
 ```
 """
-fmul_shared!(Y::AbstractVecOrMat, rhs...) =
+@inline fmul_shared!(Y::AbstractVecOrMat, rhs...) =
     fmul_shared!((Y, false), rhs...)
 
 @inline function fmul_shared!(Yβ::Tuple{AbstractVecOrMat, Number}, rhs...)
@@ -200,7 +200,7 @@ fmul_shared!(Y::AbstractVecOrMat, rhs...) =
     elseif is_shared_simd3(rhs)
         return fmul_shared_simd3!(Yβ, rhs...)
     elseif is_shared_simd2(rhs)
-        return fmul_shared_simd2!(Yβ, rhs[end], butlast(rhs)...)
+        return _fmul_shared_simd!(Val(4), Yβ, butlast(rhs), rhs[end])
     end
     notimplemented(fmul_shared!, Yβ, rhs...)
 end
@@ -305,9 +305,6 @@ compute_vaccs(::Tuple{}, ::Tuple{}, ::Tuple{}, _, _) = ()
                    Base.tail(nzvs),
                    Base.tail(Xs),
                    idx, vj)...)
-
-@inline fmul_shared_simd2!(Yβ, X, pairs...) =
-    _fmul_shared_simd!(Val(4), Yβ, pairs, X)
 
 @inline function _fmul_shared_simd!(
         ::Val{N},
