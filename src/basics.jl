@@ -34,6 +34,8 @@ isdiagtype(::Diagonal) = true
 isdiagtype(::UniformScaling) = true
 isdiagtype(::Number) = true
 
+matsize(A) = (size(A, 1), size(A, 2))
+
 @inline unsafe_column(A::AbstractMatrix, k) =
     SubArray(A, (Base.Slice(Base.OneTo(size(A, 1))), k))
 

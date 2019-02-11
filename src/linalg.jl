@@ -233,21 +233,98 @@ end
                 throw(ArgumentError("""
 Detected call signature:
     fmul_shared!((Yβ1, ..., Yβm), (D1, S1'), ..., (Dn, Sn'), X)
-with `m = $(length(Yβ))` and `n = $(length(rhs) - 1)`.  Note that `m` and
-`n` must match."""))
+with `m = $(length(Yβ))` and `n = $(length(rhs) - 1)`.  Note that `m` and `n` must match."""))
             end
         else
             if length(Yβ) != length(rhs)
                 throw(ArgumentError("""
 Detected call signature:
     fmul_shared!((Yβ1, ..., Yβm), (D1, S1', X1), ..., (Dn, Sn', Xn))
-with `m = $(length(Yβ))` and `n = $(length(rhs))`.  Note that `m` and
-`n` must match."""))
+with `m = $(length(Yβ))` and `n = $(length(rhs))`.  Note that `m` and `n` must match."""))
             end
         end
     end
 
-    # TODO: check array size
+    if Yβ isa Tuple{Vararg{AbstractMatrix}}
+        n1, n4 = size(Yβ[1])
+        if !all(Y -> size(Y) == (n1, n4), Yβ)
+            throw(ArgumentError("""
+Matrices `Y1`, ..., `Yn` passed to `fmul_shared!((Y1, ..., Yn), ...)` do not
+have uniform `size`."""))
+        end
+    elseif Yβ isa Tuple{Vararg{Tuple{AbstractMatrix,Number}}}
+        n1, n4 = size(Yβ[1][1])
+        if !all(((Y, _),) -> size(Y) == (n1, n4), Yβ)
+            throw(ArgumentError("""
+Matrices `Y1`, ..., `Yn` passed to `fmul_shared!(((Y1, β1), ..., (Yn, βn)), ...)`
+do not have uniform `size`."""))
+        end
+    elseif Yβ isa AbstractMatrix
+        n1, n4 = size(Yβ)
+    elseif Yβ isa Tuple{AbstractMatrix,Number}
+        n1, n4 = size(Yβ[1])
+    else
+        throw(ArgumentError("""
+        Unsupported type for first argument of `fmul_shared!`:
+            $(typeof(Yβ))
+        """))
+    end
+
+    if rhs[end] isa AbstractVecOrMat
+        terms = butlast(rhs)
+        if length(terms) == 0
+            throw(ArgumentError("""
+Invalid call signature:
+    fmul_shared!(Yβ, X)
+See `?fmul_shared!` for the list of supported call signatures.
+"""))
+        elseif !(terms isa Tuple{Vararg{Tuple{DiagonalLike,AbstractMatrix}}})
+            throw(ArgumentError("""
+Detected call signature:
+    fmul_shared!(Yβ, (D1, S1'), ..., (Dn, Sn'), X)
+However, one of `(Di, Si')` is not of supported type.  Each `Di` must be of
+a diagonal-like type (i.e.,`$DiagonalLike`)
+and `Si'` must be a matrix.
+"""))
+        end
+    else
+        terms = rhs
+        if !(terms isa Tuple{Vararg{Tuple{DiagonalLike,AbstractMatrix,AbstractVecOrMat}}})
+            throw(ArgumentError("""
+Detected call signature:
+    fmul_shared!(Yβ, (D1, S1', X1), ..., (Dn, Sn', X2))
+However, one of `(Di, Si', Xi)` is not of supported type.  Each `Di` must be of
+a diagonal-like type (i.e.,`$DiagonalLike`),
+`Si'` must be and a matrix, and `Xi` must be a matrix or a vector.
+"""))
+        end
+    end
+
+    S1 = rhs[1][2] :: AbstractMatrix
+    n2, n3 = size(S1)
+    if rhs[end] isa AbstractVecOrMat
+        if matsize(rhs[end]) != (n3, n4)
+            throw(ArgumentError("""
+Size of argument `X` passed to `fmul_shared!` is inconsistent with `Y`.
+"""))
+        end
+    else
+        if !all(((_, _, X),) -> matsize(X) == (n3, n4), terms)
+            throw(ArgumentError("""
+Sizes of arguments `X` passed to `fmul_shared!` are inconsistent.
+"""))
+        end
+    end
+
+    if !all(((_, S),) -> size(S) == (n2, n3), terms)
+        throw(ArgumentError("""
+Sizes of arguments `S` passed to `fmul_shared!` are inconsistent.
+"""))
+    elseif !all(((D,),) -> !(D isa Diagonal) || size(D) == (n1, n2), terms)
+        throw(ArgumentError("""
+Sizes of arguments `D` passed to `fmul_shared!` are inconsistent.
+"""))
+    end
 
     return
 end
