@@ -168,11 +168,7 @@ structure.
 Y = Y β + D₁ S₁' X₁ + ... + Dₙ Sₙ' Xₙ
 
 Y = Y β + (D₁ S₁' + ... + Dₙ Sₙ') X
-
-Y = Y β + S₁ D₁ X₁ + ... + Sₙ Dₙ Xₙ
 ```
-
-(ATM, only the first form with SIMD-compatible scalar types is defined.)
 
 # Examples
 ```

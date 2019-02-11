@@ -17,10 +17,7 @@ Features:
     * `Y = Y β + D S' X`
     * `Y = Y β + S D X`
     * `Y = Y β + D₁ S₁' X₁ + ... + Dₙ Sₙ' Xₙ` [*1]
-
-  Planned:
-
-    * `Y = Y β + S₁ D₁ X₁ + ... + Sₙ Dₙ Xₙ` [*1]
+    * `Y = Y β + (D₁ S₁' + ... + Dₙ Sₙ') X` [*1]
 
   where:
 
