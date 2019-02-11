@@ -34,3 +34,17 @@ isdiagtype(::Number) = true
 
 @inline unsafe_column(A::AbstractMatrix, k) =
     SubArray(A, (Base.Slice(Base.OneTo(size(A, 1))), k))
+
+rmul_or_fill!((Y, β)::Tuple{AbstractVecOrMat, Number}) = rmul_or_fill!(Y, β)
+function rmul_or_fill!(Y::AbstractVecOrMat, β::Number)
+    if β != 1
+        β != 0 ? rmul!(Y, β) : fill!(Y, zero(eltype(Y)))
+    end
+    return
+end
+
+rmul_or_fill_many!() = nothing
+function rmul_or_fill_many!(Yβ::Tuple, rest::Tuple...)
+    rmul_or_fill!(Yβ)
+    rmul_or_fill_many!(rest...)
+end

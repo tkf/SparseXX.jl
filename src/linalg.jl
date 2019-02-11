@@ -159,7 +159,8 @@ end
 """
     fmul_shared!((Y, β), (D1, S1', X1), ..., (Dn, Sn', Xn))
     fmul_shared!((Y, β), (D1, S1'), ..., (Dn, Sn'), X)
-    fmul_shared!((Y, β), (S1, D1, X1), ..., (Sn, Dn, Xn))
+    fmul_shared!(((Y1, β1), ..., (Yn, βn)), (D1, S1', X1), ..., (Dn, Sn', Xn))
+    fmul_shared!(((Y1, β1), ..., (Yn, βn)), (D1, S1'), ..., (Dn, Sn'), X)
 
 Fused multiplications for sparse matrices with shared non-zero
 structure.
@@ -168,6 +169,10 @@ structure.
 Y = Y β + D₁ S₁' X₁ + ... + Dₙ Sₙ' Xₙ
 
 Y = Y β + (D₁ S₁' + ... + Dₙ Sₙ') X
+
+Yᵢ = Yᵢ βᵢ + Dᵢ Sᵢ' Xᵢ
+
+Yᵢ = Yᵢ βᵢ + Dᵢ Sᵢ' X
 ```
 
 # Examples
@@ -184,18 +189,25 @@ julia> begin
        X2 = randn(m, n)
        D1 = Diagonal(randn(m))
        D2 = Diagonal(randn(m))
-       Y = zero(X1)
+       Y1 = zero(X1)
+       Y2 = zero(X1)
        end;
 
-julia> fmul_shared!(Y, (D1, S1', X1), (D2, S2', X2));
+julia> fmul_shared!(Y1, (D1, S1', X1), (D2, S2', X2)) === Y1
+true
 
-julia> fmul_shared!(Y, (D1, S1'), (D2, S2'), X1);
+julia> fmul_shared!((Y1, Y2), (D1, S1', X1), (D2, S2', X2)) === (Y1, Y2)
+true
+
+julia> fmul_shared!(Y1, (D1, S1'), (D2, S2'), X1) === Y1
+true
+
+julia> fmul_shared!((Y1, Y2), (D1, S1'), (D2, S2'), X1) === (Y1, Y2)
+true
 ```
 """
-@inline fmul_shared!(Y::AbstractVecOrMat, rhs...) =
-    fmul_shared!((Y, false), rhs...)
-
-@inline function fmul_shared!(Yβ::Tuple{AbstractVecOrMat, Number}, rhs...)
+@inline function fmul_shared!(Yβ_, rhs...)
+    Yβ = canonicalize_Yβ(Yβ_)
     if length(rhs) == 0
     elseif is_shared_simd3(rhs)
         return fmul_shared_simd3!(Yβ, rhs...)
@@ -206,6 +218,13 @@ julia> fmul_shared!(Y, (D1, S1'), (D2, S2'), X1);
 end
 # It would be nice to have some computation graph exectuor on top of
 # fmul*!, but it can be done later.
+
+@inline canonicalize_Yβ(Yβ::Tuple{AbstractMatrix,Number}) = Yβ
+@inline canonicalize_Yβ(Y::AbstractMatrix) = (Y, false)
+
+@inline canonicalize_Yβ(Yβ::Tuple{Vararg{Tuple{AbstractMatrix,Number}}}) = Yβ
+@inline canonicalize_Yβ(Ys::Tuple{Vararg{AbstractMatrix}}) =
+    map(canonicalize_Yβ, Ys)
 
 @inline function is_shared_simd3(triplets)
     t1 = triplets[1]
@@ -226,6 +245,16 @@ end
         all(((_, S),) -> isnzshared(t1[2], S), middle)
 end
 
+@inline function preprocess_Yβ(Yβ::Tuple{AbstractMatrix,Number})
+    rmul_or_fill!(Yβ)
+    return Yβ[1]
+end
+
+@inline function preprocess_Yβ(Yβs::Tuple{Vararg{Tuple{AbstractMatrix,Number}}})
+    rmul_or_fill_many!(Yβs...)
+    return map(first, Yβs)
+end
+
 @inline fmul_shared_simd3!(Yβ, triplets...) =
     _fmul_shared_simd!(Val(4), Yβ, triplets)
 
@@ -236,10 +265,9 @@ end
         ::Val{N},
         Yβ, triplets::Tuple{Vararg{Diag_CSR_VM}}
         ) where {N}
-    Y, β = Yβ
-    if β != 1
-        β != 0 ? rmul!(Y, β) : fill!(Y, zero(eltype(Y)))
-    end
+
+    Y = preprocess_Yβ(Yβ)
+    Y :: Union{AbstractMatrix,Tuple{Vararg{AbstractMatrix}}}
 
     lane = VecRange{N}(0)
 
@@ -248,7 +276,7 @@ end
     nzvs = map(((_, S, _),) -> nonzeros(parent(S)), triplets)
     diags = map(((D, _, _),) -> D.diag, triplets)
 
-    for k = 1:size(Y, 2)
+    for k = 1:size(triplets[1][3], 2)
         Xs = let k = k
             map(DSX -> unsafe_column(DSX[3], k), triplets)
         end
@@ -284,15 +312,27 @@ end
                 j += 1
             end
 
-            prods = let col = col
-                map(diags, accs) do diag, acc
-                    @inbounds diag[col] * acc
-                end
-            end
-            Y[col, k] += +(prods...)
+            update_Y!(Y, diags, accs, col, k)
         end
     end
     return Y
+end
+
+@inline function update_Y!(Y::AbstractMatrix, diags, accs, col, k)
+    prods = map(diags, accs) do diag, acc
+        @inbounds diag[col] * acc
+    end
+    @inbounds Y[col, k] += +(prods...)
+    return
+end
+
+@inline function update_Y!(Ys::Tuple{Vararg{AbstractMatrix}},
+                           diags, accs, col, k)
+    map(Ys, diags, accs) do Y, diag, acc
+        @inbounds Y[col, k] += diag[col] * acc
+        return
+    end
+    return
 end
 
 # This is a workaround for the possible bug in `let`:
@@ -310,10 +350,9 @@ compute_vaccs(::Tuple{}, ::Tuple{}, ::Tuple{}, _, _) = ()
         ::Val{N},
         Yβ, pairs::Tuple{Vararg{Diag_CSR}}, X,
         ) where {N}
-    Y, β = Yβ
-    if β != 1
-        β != 0 ? rmul!(Y, β) : fill!(Y, zero(eltype(Y)))
-    end
+
+    Y = preprocess_Yβ(Yβ)
+    Y :: Union{AbstractMatrix,Tuple{Vararg{AbstractMatrix}}}
 
     lane = VecRange{N}(0)
 
@@ -322,7 +361,7 @@ compute_vaccs(::Tuple{}, ::Tuple{}, ::Tuple{}, _, _) = ()
     nzvs = map(((_, S),) -> nonzeros(parent(S)), pairs)
     diags = map(((D, _),) -> D.diag, pairs)
 
-    for k = 1:size(Y, 2)
+    for k = 1:size(X, 2)
         Xk = unsafe_column(X, k)
         @inbounds for col = 1:S1.n
             vaccs = map(pairs) do (_, S)
@@ -356,12 +395,7 @@ compute_vaccs(::Tuple{}, ::Tuple{}, ::Tuple{}, _, _) = ()
                 j += 1
             end
 
-            prods = let col = col
-                map(diags, accs) do diag, acc
-                    @inbounds diag[col] * acc
-                end
-            end
-            Y[col, k] += +(prods...)
+            update_Y!(Y, diags, accs, col, k)
         end
     end
     return Y
