@@ -206,10 +206,11 @@ julia> fmul_shared!((Y1, Y2), (D1, S1'), (D2, S2'), X1) === (Y1, Y2)
 true
 ```
 """
-@inline function fmul_shared!(Yβ_, rhs...)
+@inline function fmul_shared!(Yβ_, rhs_...)
+    check_fmul_shared_args(Yβ_, rhs_)
     Yβ = canonicalize_Yβ(Yβ_)
-    if length(rhs) == 0
-    elseif is_shared_simd3(rhs)
+    rhs = canonicalize_rhs(rhs_)
+    if is_shared_simd3(rhs)
         return fmul_shared_simd3!(Yβ, rhs...)
     elseif is_shared_simd2(rhs)
         return _fmul_shared_simd!(Val(4), Yβ, butlast(rhs), rhs[end])
@@ -218,6 +219,46 @@ true
 end
 # It would be nice to have some computation graph exectuor on top of
 # fmul*!, but it can be done later.
+
+@inline function check_fmul_shared_args(Yβ, rhs)
+    if length(rhs) == 0
+        throw(ArgumentError("fmul_shared! needs one or more `rhs` arguments"))
+    end
+
+    # Fan-out case
+    if Yβ isa Union{Tuple{Vararg{AbstractMatrix}},
+                    Tuple{Vararg{Tuple{AbstractMatrix,Number}}}}
+        if rhs[end] isa AbstractVecOrMat
+            if length(Yβ) != length(rhs) - 1
+                throw(ArgumentError("""
+Detected call signature:
+    fmul_shared!((Yβ1, ..., Yβm), (D1, S1'), ..., (Dn, Sn'), X)
+with `m = $(length(Yβ))` and `n = $(length(rhs) - 1)`.  Note that `m` and
+`n` must match."""))
+            end
+        else
+            if length(Yβ) != length(rhs)
+                throw(ArgumentError("""
+Detected call signature:
+    fmul_shared!((Yβ1, ..., Yβm), (D1, S1', X1), ..., (Dn, Sn', Xn))
+with `m = $(length(Yβ))` and `n = $(length(rhs))`.  Note that `m` and
+`n` must match."""))
+            end
+        end
+    end
+
+    # TODO: check array size
+
+    return
+end
+
+@inline canonicalize_rhs(rhs) = map(canonicalize_term, rhs)
+
+@inline canonicalize_term(term) = term
+@inline function canonicalize_term(DSX::Tuple{DiagonalLike,Any,Vararg})
+    D, S = DSX
+    return (Diagonal(asdiag(D, size(S, 1))), Base.tail(DSX)...)
+end
 
 @inline canonicalize_Yβ(Yβ::Tuple{AbstractMatrix,Number}) = Yβ
 @inline canonicalize_Yβ(Y::AbstractMatrix) = (Y, false)

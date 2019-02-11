@@ -23,6 +23,8 @@ simdable(T::Type{<:SparseMatrixCSC{Tv,Ti}}) where {Tv,Ti} = allsimdable(Tv, Ti)
 allsimdable() = true
 allsimdable(x, args...) = simdable(x) && allsimdable(args...)
 
+const DiagonalLike = Union{Diagonal,UniformScaling,Number}
+
 asdiag(A::Diagonal, n) = A.diag
 asdiag(A::UniformScaling, n) = asdiag(A.λ, n)
 asdiag(a::Number, n) = Fill(a, n, n)

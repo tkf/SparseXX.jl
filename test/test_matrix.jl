@@ -42,22 +42,66 @@ end
     @test C ≈ D * C0
 end
 
-@testset "fmul_shared!" begin
+fmul_shared_test_params = let params = []
     m = 10
     n = 3
-    D1 = Diagonal(randn(m))
-    D2 = Diagonal(randn(m))
-    D3 = Diagonal(randn(m))
+
     S1 = sprandn(m, m, 0.3)
     S2 = spshared(S1)
     S3 = spshared(S1)
     randn!(nonzeros(S2))
     randn!(nonzeros(S3))
-    X1 = randn(m, n)
-    X2 = randn(m, n)
-    X3 = randn(m, n)
+    push!(params, (
+        label = "default",
+        D1 = Diagonal(randn(m)),
+        D2 = Diagonal(randn(m)),
+        D3 = Diagonal(randn(m)),
+        S1 = S1,
+        S2 = S2,
+        S3 = S3,
+        X1 = randn(m, n),
+        X2 = randn(m, n),
+        X3 = randn(m, n),
+    ))
+
+    S1 = sprandn(m, m, 0.3)
+    S2 = spshared(S1)
+    S3 = spshared(S1)
+    randn!(nonzeros(S2))
+    randn!(nonzeros(S3))
+    push!(params, (
+        label = "mixed D type",
+        D1 = randn(),
+        D2 = randn() * I,
+        D3 = Diagonal(randn(m)),
+        S1 = S1,
+        S2 = S2,
+        S3 = S3,
+        X1 = randn(m, n),
+        X2 = randn(m, n),
+        X3 = randn(m, n),
+    ))
+
+    params
+end
+
+@testset "is_shared_simd" begin
+    @unpack D1, D2, D3, S1, S2, S3, X1, X2, X3 = fmul_shared_test_params[1]
 
     @test SparseXX.is_shared_simd3(((D1, S1', X1), (D2, S2', X2)))
+    @test SparseXX.is_shared_simd2(((D1, S1'), (D2, S2'), X1))
+    @test SparseXX.is_shared_simd3(((D1, S1', X1),
+                                    (D2, S2', X2),
+                                    (D3, S3', X3)))
+    @test SparseXX.is_shared_simd2(((D1, S1'),
+                                    (D2, S2'),
+                                    (D3, S3'),
+                                    X1))
+end
+
+@testset "fmul_shared! $(p.label)" for p in fmul_shared_test_params
+    @unpack D1, D2, D3, S1, S2, S3, X1, X2, X3 = p
+
     Y = fmul_shared!(zero(X1), (D1, S1', X1), (D2, S2', X2))
     @test Y ≈ D1 * S1' * X1 + D2 * S2' * X2
 
@@ -65,7 +109,6 @@ end
     @test Y1 ≈ D1 * S1' * X1
     @test Y2 ≈ D2 * S2' * X2
 
-    @test SparseXX.is_shared_simd2(((D1, S1'), (D2, S2'), X1))
     Y = fmul_shared!(zero(X1), (D1, S1'), (D2, S2'), X1)
     @test Y ≈ (D1 * S1' + D2 * S2') * X1
 
@@ -73,9 +116,6 @@ end
     @test Y1 ≈ D1 * S1' * X1
     @test Y2 ≈ D2 * S2' * X1
 
-    @test SparseXX.is_shared_simd3(((D1, S1', X1),
-                                    (D2, S2', X2),
-                                    (D3, S3', X3)))
     Y = fmul_shared!(zero(X1),
                      (D1, S1', X1),
                      (D2, S2', X2),
@@ -90,10 +130,6 @@ end
     @test Y2 ≈ D2 * S2' * X2
     @test Y3 ≈ D3 * S3' * X3
 
-    @test SparseXX.is_shared_simd2(((D1, S1'),
-                                    (D2, S2'),
-                                    (D3, S3'),
-                                    X1))
     Y = fmul_shared!(zero(X1),
                      (D1, S1'),
                      (D2, S2'),
