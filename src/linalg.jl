@@ -247,14 +247,20 @@ with `m = $(length(Yβ))` and `n = $(length(rhs))`.  Note that `m` and `n` must 
 
     if Yβ isa Tuple{Vararg{AbstractMatrix}}
         n1, n4 = size(Yβ[1])
-        if !all(Y -> size(Y) == (n1, n4), Yβ)
+        if !all(let dim = (n1, n4)
+                    Y -> size(Y) == dim
+                end,
+                Yβ)
             throw(ArgumentError("""
 Matrices `Y1`, ..., `Yn` passed to `fmul_shared!((Y1, ..., Yn), ...)` do not
 have uniform `size`."""))
         end
     elseif Yβ isa Tuple{Vararg{Tuple{AbstractMatrix,Number}}}
         n1, n4 = size(Yβ[1][1])
-        if !all(((Y, _),) -> size(Y) == (n1, n4), Yβ)
+        if !all(let dim = (n1, n4)
+                    ((Y, _),) -> size(Y) == dim
+                end,
+                Yβ)
             throw(ArgumentError("""
 Matrices `Y1`, ..., `Yn` passed to `fmul_shared!(((Y1, β1), ..., (Yn, βn)), ...)`
 do not have uniform `size`."""))
@@ -309,18 +315,27 @@ Size of argument `X` passed to `fmul_shared!` is inconsistent with `Y`.
 """))
         end
     else
-        if !all(((_, _, X),) -> matsize(X) == (n3, n4), terms)
+        if !all(let dim = (n3, n4)
+                    ((_, _, X),) -> matsize(X) == dim
+                end,
+                terms)
             throw(ArgumentError("""
 Sizes of arguments `X` passed to `fmul_shared!` are inconsistent.
 """))
         end
     end
 
-    if !all(((_, S),) -> size(S) == (n2, n3), terms)
+    if !all(let dim = (n2, n3)
+                ((_, S),) -> size(S) == dim
+            end,
+            terms)
         throw(ArgumentError("""
 Sizes of arguments `S` passed to `fmul_shared!` are inconsistent.
 """))
-    elseif !all(((D,),) -> !(D isa Diagonal) || size(D) == (n1, n2), terms)
+    elseif !all(let dim = (n1, n2)
+                    ((D,),) -> !(D isa Diagonal) || size(D) == dim
+                end,
+                terms)
         throw(ArgumentError("""
 Sizes of arguments `D` passed to `fmul_shared!` are inconsistent.
 """))
