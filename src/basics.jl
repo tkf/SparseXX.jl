@@ -10,7 +10,7 @@ const DenseIndex = Union{UnitRange, Base.Slice{<:Base.OneTo}}
 const SIMDArray{T} = Union{
     DenseArray{T},
     SubArray{T, <:Any, <:DenseArray{T},
-             <:Tuple{<:DenseIndex, Vararg{Integer}}, true},
+             <:Tuple{<:DenseIndex, Vararg}},
 }
 
 simdable(::T) where T = simdable(T)
@@ -36,8 +36,7 @@ isdiagtype(::Number) = true
 
 matsize(A) = (size(A, 1), size(A, 2))
 
-@inline unsafe_column(A::AbstractMatrix, k) =
-    SubArray(A, (Base.Slice(Base.OneTo(size(A, 1))), k))
+@inline unsafe_column(A::AbstractMatrix, k) = @inbounds view(A, :, k)
 
 rmul_or_fill!((Y, β)::Tuple{AbstractVecOrMat, Number}) = rmul_or_fill!(Y, β)
 function rmul_or_fill!(Y::AbstractVecOrMat, β::Number)
