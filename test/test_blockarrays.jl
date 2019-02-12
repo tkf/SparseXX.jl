@@ -27,7 +27,7 @@ function randomblocksparse(; p = 0.3, kwargs...)
     return S
 end
 
-chained_test_params = begin params = []
+chained_test_params = let params = []
     n = 5
 
     S1 = randomblocksparse()
