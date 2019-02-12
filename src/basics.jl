@@ -36,7 +36,7 @@ isdiagtype(::Number) = true
 
 matsize(A) = (size(A, 1), size(A, 2))
 
-@inline unsafe_column(A::AbstractMatrix, k) = @inbounds view(A, :, k)
+@inline unsafe_column(A::AbstractVecOrMat, k) = @inbounds view(A, :, k)
 
 rmul_or_fill!((Y, β)::Tuple{AbstractVecOrMat, Number}) = rmul_or_fill!(Y, β)
 function rmul_or_fill!(Y::AbstractVecOrMat, β::Number)

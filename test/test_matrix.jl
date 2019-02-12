@@ -52,7 +52,7 @@ fmul_shared_test_params = let params = []
     randn!(nonzeros(S2))
     randn!(nonzeros(S3))
     push!(params, (
-        label = "default",
+        label = "Xn :: Matrix",
         D1 = Diagonal(randn(m)),
         D2 = Diagonal(randn(m)),
         D3 = Diagonal(randn(m)),
@@ -62,6 +62,19 @@ fmul_shared_test_params = let params = []
         X1 = randn(m, n),
         X2 = randn(m, n),
         X3 = randn(m, n),
+    ))
+
+    push!(params, (
+        label = "Xn :: Vector",
+        D1 = Diagonal(randn(m)),
+        D2 = Diagonal(randn(m)),
+        D3 = Diagonal(randn(m)),
+        S1 = S1,
+        S2 = S2,
+        S3 = S3,
+        X1 = randn(m),
+        X2 = randn(m),
+        X3 = randn(m),
     ))
 
     S1 = sprandn(m, m, 0.3)
@@ -85,8 +98,8 @@ fmul_shared_test_params = let params = []
     params
 end
 
-@testset "is_shared_simd" begin
-    @unpack D1, D2, D3, S1, S2, S3, X1, X2, X3 = fmul_shared_test_params[1]
+@testset "is_shared_simd $(p.label)" for p in fmul_shared_test_params[1:2]
+    @unpack D1, D2, D3, S1, S2, S3, X1, X2, X3 = p
 
     @test SparseXX.is_shared_simd3(((D1, S1', X1), (D2, S2', X2)))
     @test SparseXX.is_shared_simd2(((D1, S1'), (D2, S2'), X1))

@@ -245,30 +245,30 @@ with `m = $(length(Yβ))` and `n = $(length(rhs))`.  Note that `m` and `n` must 
         end
     end
 
-    if Yβ isa Tuple{Vararg{AbstractMatrix}}
-        n1, n4 = size(Yβ[1])
+    if Yβ isa Tuple{Vararg{AbstractVecOrMat}}
+        n1, n4 = matsize(Yβ[1])
         if !all(let dim = (n1, n4)
-                    Y -> size(Y) == dim
+                    Y -> matsize(Y) == dim
                 end,
                 Yβ)
             throw(ArgumentError("""
 Matrices `Y1`, ..., `Yn` passed to `fmul_shared!((Y1, ..., Yn), ...)` do not
 have uniform `size`."""))
         end
-    elseif Yβ isa Tuple{Vararg{Tuple{AbstractMatrix,Number}}}
-        n1, n4 = size(Yβ[1][1])
+    elseif Yβ isa Tuple{Vararg{Tuple{AbstractVecOrMat,Number}}}
+        n1, n4 = matsize(Yβ[1][1])
         if !all(let dim = (n1, n4)
-                    ((Y, _),) -> size(Y) == dim
+                    ((Y, _),) -> matsize(Y) == dim
                 end,
                 Yβ)
             throw(ArgumentError("""
 Matrices `Y1`, ..., `Yn` passed to `fmul_shared!(((Y1, β1), ..., (Yn, βn)), ...)`
 do not have uniform `size`."""))
         end
-    elseif Yβ isa AbstractMatrix
-        n1, n4 = size(Yβ)
-    elseif Yβ isa Tuple{AbstractMatrix,Number}
-        n1, n4 = size(Yβ[1])
+    elseif Yβ isa AbstractVecOrMat
+        n1, n4 = matsize(Yβ)
+    elseif Yβ isa Tuple{AbstractVecOrMat,Number}
+        n1, n4 = matsize(Yβ[1])
     else
         throw(ArgumentError("""
         Unsupported type for first argument of `fmul_shared!`:
@@ -352,11 +352,11 @@ end
     return (Diagonal(asdiag(D, size(S, 1))), Base.tail(DSX)...)
 end
 
-@inline canonicalize_Yβ(Yβ::Tuple{AbstractMatrix,Number}) = Yβ
-@inline canonicalize_Yβ(Y::AbstractMatrix) = (Y, false)
+@inline canonicalize_Yβ(Yβ::Tuple{AbstractVecOrMat,Number}) = Yβ
+@inline canonicalize_Yβ(Y::AbstractVecOrMat) = (Y, false)
 
-@inline canonicalize_Yβ(Yβ::Tuple{Vararg{Tuple{AbstractMatrix,Number}}}) = Yβ
-@inline canonicalize_Yβ(Ys::Tuple{Vararg{AbstractMatrix}}) =
+@inline canonicalize_Yβ(Yβ::Tuple{Vararg{Tuple{AbstractVecOrMat,Number}}}) = Yβ
+@inline canonicalize_Yβ(Ys::Tuple{Vararg{AbstractVecOrMat}}) =
     map(canonicalize_Yβ, Ys)
 
 @inline function is_shared_simd3(triplets)
@@ -378,12 +378,12 @@ end
         all(((_, S),) -> isnzshared(t1[2], S), middle)
 end
 
-@inline function preprocess_Yβ(Yβ::Tuple{AbstractMatrix,Number})
+@inline function preprocess_Yβ(Yβ::Tuple{AbstractVecOrMat,Number})
     rmul_or_fill!(Yβ)
     return Yβ[1]
 end
 
-@inline function preprocess_Yβ(Yβs::Tuple{Vararg{Tuple{AbstractMatrix,Number}}})
+@inline function preprocess_Yβ(Yβs::Tuple{Vararg{Tuple{AbstractVecOrMat,Number}}})
     rmul_or_fill_many!(Yβs...)
     return map(first, Yβs)
 end
@@ -400,7 +400,7 @@ end
         ) where {N}
 
     Y = preprocess_Yβ(Yβ)
-    Y :: Union{AbstractMatrix,Tuple{Vararg{AbstractMatrix}}}
+    Y :: Union{AbstractVecOrMat,Tuple{Vararg{AbstractVecOrMat}}}
 
     lane = VecRange{N}(0)
 
@@ -451,7 +451,7 @@ end
     return Y
 end
 
-@inline function update_Y!(Y::AbstractMatrix, diags, accs, col, k)
+@inline function update_Y!(Y::AbstractVecOrMat, diags, accs, col, k)
     prods = map(diags, accs) do diag, acc
         @inbounds diag[col] * acc
     end
@@ -459,7 +459,7 @@ end
     return
 end
 
-@inline function update_Y!(Ys::Tuple{Vararg{AbstractMatrix}},
+@inline function update_Y!(Ys::Tuple{Vararg{AbstractVecOrMat}},
                            diags, accs, col, k)
     map(Ys, diags, accs) do Y, diag, acc
         @inbounds Y[col, k] += diag[col] * acc
@@ -485,7 +485,7 @@ compute_vaccs(::Tuple{}, ::Tuple{}, ::Tuple{}, _, _) = ()
         ) where {N}
 
     Y = preprocess_Yβ(Yβ)
-    Y :: Union{AbstractMatrix,Tuple{Vararg{AbstractMatrix}}}
+    Y :: Union{AbstractVecOrMat,Tuple{Vararg{AbstractVecOrMat}}}
 
     lane = VecRange{N}(0)
 
