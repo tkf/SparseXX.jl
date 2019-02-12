@@ -156,6 +156,9 @@ function spshared(S, nzval = similar(nonzeros(S)))
     return constructor_of(S)(m, n, colptr, rowval, nzval)
 end
 
+spshared(S::Adjoint, args...) = adjoint(spshared(parent(S)), args...)
+spshared(S::Transpose, args...) = transpose(spshared(parent(S)), args...)
+
 """
     fmul_shared!((Y, β), (D1, S1', X1), ..., (Dn, Sn', Xn))
     fmul_shared!((Y, β), (D1, S1'), ..., (Dn, Sn'), X)

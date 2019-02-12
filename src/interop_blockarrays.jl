@@ -6,8 +6,11 @@ using LinearAlgebra: Diagonal
 using BlockArrays
 using BlockArrays: cumulsizes
 
-import ..SparseXX: asfmulable
+import ..SparseXX: asfmulable, spshared
 using ..SparseXX: ChainedFMulShared, DiagonalLike
+
+blktype(B) = blktype(typeof(B))
+blktype(::Type{<:BlockArray{T, N, R}}) where {T, N, R} = R
 
 isdiagofblocks(::DiagonalLike) = false
 isdiagofblocks(D::Diagonal) = D.diag isa AbstractBlockVector
@@ -63,6 +66,14 @@ function asfmulable(rhs::Tuple{DiagonalLike,AbstractBlockMatrix}...)
     end
 
     return ChainedFMulShared(Tuple.((terms, yranges, xranges))...)
+end
+
+function spshared(A::BlockArray)
+    B = BlockArray(undef_blocks, blktype(A), diff.(cumulsizes(blocksizes(A)))...)
+    for I in eachindex(A.blocks)
+        B.blocks[I] = spshared(A.blocks[I])
+    end
+    return B
 end
 
 end  # module

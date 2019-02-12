@@ -13,21 +13,15 @@ allocblockarrays(;
         ) =
     BlockArray(undef_blocks, stype, blocksizes...)
 
-function randomblocksparse(; p = 0.3, shared = nothing, kwargs...)
+function randomblocksparse(; p = 0.3, kwargs...)
     S = allocblockarrays(; kwargs...)
 
     for i in 1:nblocks(S, 1),
         j in 1:nblocks(S, 2)
 
-        if shared === nothing
-            m = blocksize(S, 1, i)
-            n = blocksize(S, 2, j)
-            S.blocks[i, j] = sprand(n, m, p)'
-        else
-            AS = spshared(parent(shared.blocks[i, j]))
-            randn!(nonzeros(AS))
-            S.blocks[i, j] = AS'
-        end
+        m = blocksize(S, 1, i)
+        n = blocksize(S, 2, j)
+        S.blocks[i, j] = sprand(n, m, p)'
     end
 
     return S
@@ -37,8 +31,8 @@ chained_test_params = begin params = []
     n = 5
 
     S1 = randomblocksparse()
-    S2 = randomblocksparse(shared = S1)
-    S3 = randomblocksparse(shared = S1)
+    S2 = spshared(S1); foreach(randn! ∘ nonzeros ∘ parent, S2.blocks)
+    S3 = spshared(S1); foreach(randn! ∘ nonzeros ∘ parent, S3.blocks)
     D1 = true
     D2 = Diagonal(randn(size(S1, 1)))
     D3 = Eye(size(S1, 1))
