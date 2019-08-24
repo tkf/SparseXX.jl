@@ -71,6 +71,14 @@ SparseArrays.rowvals(S::SparseXXMatrixCSC) = S.rowval
 Base.@propagate_inbounds SparseArrays.nzrange(S::SparseXXMatrixCSC, col::Integer) =
     S.colptr[col]:(S.colptr[col+1]-1)
 
+if isdefined(SparseArrays, :getcolptr)
+    SparseArrays.getcolptr(S::SparseXXMatrixCSC) = S.colptr
+end
+
+if isdefined(SparseArrays, :colptrs)
+    SparseArrays.colptrs(S::SparseXXMatrixCSC) = S.colptr
+end
+
 
 function Base.getindex(S::SparseXXMatrixCSC, i::Integer, j::Integer)
     nzr = nzrange(S, j)
