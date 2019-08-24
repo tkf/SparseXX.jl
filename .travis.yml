@@ -13,6 +13,16 @@ matrix:
   fast_finish: true
 notifications:
   email: false
+
+# Do not build my PR twice.  Use the build on branch.
+# https://github.com/travis-ci/travis-ci/issues/1147#issuecomment-76296437
+if: NOT (type == pull_request AND repo == tkf/SparseXX.jl)
+
+install:
+  - unset JULIA_PROJECT
+  - julia -e 'using Pkg; pkg"add https://github.com/tkf/Run.jl"'
+  - julia -e 'using Run; Run.prepare_test()'
+script:
+  - julia -e 'using Run; Run.test(inline=false)'
 after_success:
-  - julia -e 'using Pkg; Pkg.add("Coverage"); using Coverage; Codecov.submit(process_folder())'
-  - julia -e 'using Pkg; Pkg.add("Coverage"); using Coverage; Coveralls.submit(process_folder())'
+  - julia -e 'using Run; Run.after_success_test()'
