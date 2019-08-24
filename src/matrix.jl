@@ -1,10 +1,10 @@
 """
-    SparseXXMatrixCSC{Tv,Ti<:Integer} <: AbstractSparseMatrix{Tv,Ti}
+    SparseXXMatrixCSC{Tv,Ti<:Integer} <: AbstractSparseMatrixCSC{Tv,Ti}
 """
 struct SparseXXMatrixCSC{Tv, Ti<:Integer,
                          Tc<:AbstractVector{Ti},
                          Tr<:AbstractVector{Ti},
-                         Tz<:AbstractVector{Tv}} <: AbstractSparseMatrix{Tv,Ti}
+                         Tz<:AbstractVector{Tv}} <: AbstractSparseMatrixCSC{Tv,Ti}
     m::Int                  # Number of rows
     n::Int                  # Number of columns
     colptr::Tc              # Column i is in colptr[i]:(colptr[i+1]-1)
