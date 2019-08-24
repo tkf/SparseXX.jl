@@ -4,10 +4,10 @@
 uuid = "2a0f44e3-6c83-55bd-87e4-b1978d98bd5f"
 
 [[BlockArrays]]
-deps = ["Base64", "LinearAlgebra", "SparseArrays", "Test"]
-git-tree-sha1 = "68a477c2f2ddbbe518dc31a42aaf2df38bdfd93c"
+deps = ["LinearAlgebra"]
+git-tree-sha1 = "a36887ddaaf66b8f5bd017871f239247aa6f459f"
 uuid = "8e7c35d0-a365-5155-bbbb-fb81a777f24e"
-version = "0.7.0"
+version = "0.9.1"
 
 [[Distributed]]
 deps = ["Random", "Serialization", "Sockets"]

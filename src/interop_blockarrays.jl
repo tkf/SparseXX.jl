@@ -68,12 +68,7 @@ function asfmulable(rhs::Tuple{DiagonalLike,AbstractBlockMatrix}...)
     return ChainedFMulShared(Tuple.((terms, yranges, xranges))...)
 end
 
-function spshared(A::BlockArray)
-    B = BlockArray(undef_blocks, blktype(A), diff.(cumulsizes(blocksizes(A)))...)
-    for I in eachindex(A.blocks)
-        B.blocks[I] = spshared(A.blocks[I])
-    end
-    return B
-end
+spshared(A::BlockArray) =
+    mortar(map(spshared, A.blocks), blocksizes(A))
 
 end  # module
