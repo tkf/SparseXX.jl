@@ -12,7 +12,7 @@ SIMD = "fdea26ae-647d-5447-a871-4b548cad5224"
 SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
 
 [compat]
-BlockArrays = ">= 0.9, < 1"
+BlockArrays = ">= 0.9"
 SIMD = "2.3"
 
 [extras]
