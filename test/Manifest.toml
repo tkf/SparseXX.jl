@@ -5,9 +5,9 @@ uuid = "2a0f44e3-6c83-55bd-87e4-b1978d98bd5f"
 
 [[BlockArrays]]
 deps = ["LinearAlgebra"]
-git-tree-sha1 = "a36887ddaaf66b8f5bd017871f239247aa6f459f"
+git-tree-sha1 = "87b72cb71d7306b767d175ece832bf8a7f3b6dc8"
 uuid = "8e7c35d0-a365-5155-bbbb-fb81a777f24e"
-version = "0.9.1"
+version = "0.10.0"
 
 [[Distributed]]
 deps = ["Random", "Serialization", "Sockets"]
@@ -15,9 +15,9 @@ uuid = "8ba89e20-285c-5b6f-9357-94700520ee1b"
 
 [[FillArrays]]
 deps = ["LinearAlgebra", "Random", "SparseArrays"]
-git-tree-sha1 = "8fba6ddaf66b45dec830233cea0aae43eb1261ad"
+git-tree-sha1 = "4c707c87ddd3199fc5624d5c98b2c706e4d00675"
 uuid = "1a297f60-69ca-5386-bcde-b61e274b549b"
-version = "0.6.4"
+version = "0.7.0"
 
 [[InteractiveUtils]]
 deps = ["Markdown"]
