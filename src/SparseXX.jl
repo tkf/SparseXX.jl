@@ -10,6 +10,12 @@ using LinearAlgebra
 using LinearAlgebra: AdjOrTrans
 using SparseArrays
 
+if isdefined(SparseArrays, :AbstractSparseMatrixCSC)
+    using SparseArrays: AbstractSparseMatrixCSC
+else
+    const AbstractSparseMatrixCSC = AbstractSparseMatrix
+end
+
 using FillArrays
 using SIMD
 
